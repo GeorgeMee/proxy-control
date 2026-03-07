@@ -1,0 +1,28 @@
+{
+  "timestamp": "",
+  "pproxy": {
+    "running": false,
+    "pid": null,
+    "port_ok": false,
+    "last_start": null,
+    "last_error": null
+  },
+  "autossh": {
+    "running": false,
+    "pid": null,
+    "remote_port_ok": false,
+    "last_start": null,
+    "last_restart": null,
+    "restart_count": 0,
+    "last_error": null
+  },
+  "network": {
+    "ssh_ok": false
+  },
+  "config": {
+    "web_port": 5000,
+    "local_proxy_port": 8080,
+    "remote_host": "120.26.216.203",
+    "remote_port": 12334
+  }
+}

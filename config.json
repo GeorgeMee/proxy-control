@@ -1,0 +1,17 @@
+{
+  "web_host": "0.0.0.0",
+  "web_port": 5000,
+  "local_proxy_host": "127.0.0.1",
+  "local_proxy_port": 8080,
+  "remote_host": "120.26.216.203",
+  "remote_user": "root",
+  "remote_port": 12334,
+  "server_alive_interval": 30,
+  "server_alive_count_max": 3,
+  "check_interval": 5,
+  "restart_backoff": 5,
+  "max_backoff": 60,
+  "auto_start_proxy": true,
+  "auto_recover": true,
+  "log_tail_lines": 50
+}

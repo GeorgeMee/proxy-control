@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Proxy Control Mobile</title>
+  <style>
+    :root {
+      --ok: #1c7c54;
+      --bad: #c0392b;
+      --warn: #b8860b;
+      --bg: #f7f7f5;
+      --card: #ffffff;
+      --text: #1a1a1a;
+      --line: #dddddd;
+    }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 12px;
+    }
+    h1 {
+      font-size: 1.2rem;
+      margin: 0 0 10px 0;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .state {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #fff;
+    }
+    .ok { background: var(--ok); }
+    .bad { background: var(--bad); }
+    .warn { background: var(--warn); }
+    .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    button {
+      border: 1px solid #222;
+      background: #fff;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+    button:active { transform: scale(0.99); }
+    label { display: block; margin-top: 6px; font-size: 0.85rem; }
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 7px;
+      margin-top: 4px;
+      font-size: 0.9rem;
+    }
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      background: #111;
+      color: #ddd;
+      border-radius: 8px;
+      padding: 8px;
+      max-height: 180px;
+      overflow: auto;
+      font-size: 0.75rem;
+    }
+    .small { font-size: 0.8rem; color: #555; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Proxy Control Mobile</h1>
+
+    <div class="card">
+      <div>Last Update: <span id="timestamp" class="small">-</span></div>
+      <div class="row" style="margin-top:8px;">
+        <div>pproxy: <span id="pproxy_state" class="state warn">UNKNOWN</span></div>
+        <div>autossh: <span id="autossh_state" class="state warn">UNKNOWN</span></div>
+        <div>local_port: <span id="port_state" class="state warn">UNKNOWN</span></div>
+        <div>ssh: <span id="ssh_state" class="state warn">UNKNOWN</span></div>
+        <div>remote_port: <span id="remote_state" class="state warn">UNKNOWN</span></div>
+      </div>
+      <div class="row">
+        <button data-action="start">Start Chain</button>
+        <button data-action="stop">Stop Chain</button>
+        <button data-action="restart">Restart Chain</button>
+        <button data-action="restart_pproxy">Restart pproxy</button>
+        <button data-action="restart_autossh">Restart autossh</button>
+        <button data-action="test">Test Remote</button>
+      </div>
+      <div id="action_msg" class="small"></div>
+    </div>
+
+    <div class="grid" style="margin-top:10px;">
+      <div class="card">
+        <h3 style="margin:0 0 8px 0;">Config</h3>
+        <form id="config_form">
+          <label>web_host<input name="web_host"></label>
+          <label>web_port<input name="web_port" type="number"></label>
+          <label>local_proxy_host<input name="local_proxy_host"></label>
+          <label>local_proxy_port<input name="local_proxy_port" type="number"></label>
+          <label>remote_host<input name="remote_host"></label>
+          <label>remote_user<input name="remote_user"></label>
+          <label>remote_port<input name="remote_port" type="number"></label>
+          <label>server_alive_interval<input name="server_alive_interval" type="number"></label>
+          <label>server_alive_count_max<input name="server_alive_count_max" type="number"></label>
+          <label>check_interval<input name="check_interval" type="number"></label>
+          <label>restart_backoff<input name="restart_backoff" type="number"></label>
+          <label>max_backoff<input name="max_backoff" type="number"></label>
+          <label>log_tail_lines<input name="log_tail_lines" type="number"></label>
+          <label>auto_start_proxy<input name="auto_start_proxy" type="checkbox"></label>
+          <label>auto_recover<input name="auto_recover" type="checkbox"></label>
+          <div class="row">
+            <button type="button" id="save_cfg">Save Config</button>
+            <button type="button" id="save_apply_cfg">Save + Apply</button>
+          </div>
+          <div id="cfg_msg" class="small"></div>
+        </form>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:0 0 8px 0;">Logs (tail)</h3>
+        <div class="small">supervisor.log</div><pre id="log_supervisor"></pre>
+        <div class="small">pproxy.log</div><pre id="log_pproxy"></pre>
+        <div class="small">autossh.log</div><pre id="log_autossh"></pre>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
