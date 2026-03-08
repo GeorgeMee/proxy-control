@@ -115,6 +115,22 @@
 
     <div class="grid" style="margin-top:10px;">
       <div class="card">
+        <h3 style="margin:0 0 8px 0;">Update</h3>
+        <div class="small">Repo: <span id="upd_repo">-</span></div>
+        <div class="small">Branch: <span id="upd_branch">-</span></div>
+        <div class="small">Local Version: <span id="upd_local">-</span></div>
+        <div class="small">Remote Version: <span id="upd_remote">-</span></div>
+        <div class="small">Last Check: <span id="upd_last_check">-</span></div>
+        <div style="margin-top:8px;">Status: <span id="upd_state" class="state warn">UNKNOWN</span></div>
+        <div class="row">
+          <button id="btn_update_check">Check Update</button>
+          <button id="btn_update_pull">Pull Update</button>
+          <button id="btn_update_pull_restart">Pull Update + Restart</button>
+        </div>
+        <div id="upd_msg" class="small"></div>
+      </div>
+
+      <div class="card">
         <h3 style="margin:0 0 8px 0;">Config</h3>
         <form id="config_form">
           <label>web_host<input name="web_host"></label>

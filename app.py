@@ -2,9 +2,11 @@
 import json
 import logging
 import os
+import subprocess
 import tempfile
 import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Tuple
 
@@ -17,6 +19,7 @@ CONFIG_PATH = BASE_DIR / "config.json"
 STATUS_PATH = RUNTIME_DIR / "status.json"
 CONTROL_PATH = RUNTIME_DIR / "control.json"
 WEB_LOG_PATH = LOGS_DIR / "web.log"
+UPDATE_LOG_PATH = LOGS_DIR / "update.log"
 
 DEFAULT_CONFIG: Dict[str, Any] = {
     "web_host": "0.0.0.0",
@@ -66,6 +69,7 @@ DEFAULT_STATUS: Dict[str, Any] = {
 }
 
 app = Flask(__name__)
+update_logger = logging.getLogger("update")
 
 
 def ensure_layout() -> None:
@@ -79,7 +83,7 @@ def ensure_layout() -> None:
         p = RUNTIME_DIR / name
         if not p.exists():
             p.touch()
-    for name in ("web.log", "supervisor.log", "pproxy.log", "autossh.log"):
+    for name in ("web.log", "supervisor.log", "pproxy.log", "autossh.log", "update.log"):
         p = LOGS_DIR / name
         if not p.exists():
             p.touch()
@@ -182,6 +186,115 @@ def parse_config_payload(payload: Dict[str, Any]) -> Tuple[bool, str, Dict[str, 
     return True, "ok", cleaned
 
 
+def run_cmd(args: list[str], timeout: int = 20) -> Tuple[bool, str]:
+    try:
+        result = subprocess.run(
+            args,
+            cwd=str(BASE_DIR),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+        if result.returncode != 0:
+            return False, (result.stderr or result.stdout or "").strip()
+        return True, (result.stdout or "").strip()
+    except subprocess.TimeoutExpired:
+        return False, "command timeout"
+    except Exception as exc:
+        return False, str(exc)
+
+
+def git_required_state() -> Tuple[bool, str]:
+    ok, output = run_cmd(["git", "status", "--porcelain"])
+    if not ok:
+        return False, f"git status failed: {output}"
+    if output.strip():
+        return False, "working tree not clean"
+
+    ok, branch = run_cmd(["git", "branch", "--show-current"])
+    if not ok:
+        return False, f"git branch check failed: {branch}"
+    if branch.strip() != "main":
+        return False, "updates allowed only on main branch"
+
+    return True, ""
+
+
+def get_update_status(fetch_remote: bool = True) -> Tuple[bool, str, Dict[str, Any]]:
+    repo_url = ""
+
+    ok, repo = run_cmd(["git", "remote", "get-url", "origin"])
+    if ok:
+        repo_url = repo.strip()
+
+    ok, branch = run_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+    if not ok:
+        return False, f"failed to read branch: {branch}", {}
+
+    ok, local_commit = run_cmd(["git", "rev-parse", "--short", "HEAD"])
+    if not ok:
+        return False, f"failed to read local commit: {local_commit}", {}
+
+    if fetch_remote:
+        ok, fetch_msg = run_cmd(["git", "fetch", "origin"])
+        if not ok:
+            return False, f"git fetch failed: {fetch_msg}", {}
+        update_logger.info("update check")
+
+    ok, remote_commit = run_cmd(["git", "rev-parse", "--short", "origin/main"])
+    if not ok:
+        return False, f"failed to read remote commit: {remote_commit}", {}
+
+    data = {
+        "repo": repo_url,
+        "branch": branch.strip(),
+        "local_commit": local_commit.strip(),
+        "remote_commit": remote_commit.strip(),
+        "update_available": local_commit.strip() != remote_commit.strip(),
+        "last_check": datetime.now().isoformat(timespec="seconds"),
+    }
+    return True, "ok", data
+
+
+def do_pull() -> Tuple[bool, str, Dict[str, Any]]:
+    ok, old_commit = run_cmd(["git", "rev-parse", "--short", "HEAD"])
+    if not ok:
+        return False, f"failed to read old commit: {old_commit}", {}
+
+    ok, pull_msg = run_cmd(["git", "pull", "--ff-only", "origin", "main"])
+    if not ok:
+        return False, f"git pull failed: {pull_msg}", {}
+
+    ok, new_commit = run_cmd(["git", "rev-parse", "--short", "HEAD"])
+    if not ok:
+        return False, f"failed to read new commit: {new_commit}", {}
+
+    old_commit = old_commit.strip()
+    new_commit = new_commit.strip()
+    message = "already up to date" if old_commit == new_commit else "updated"
+    update_logger.info("update pull: %s -> %s", old_commit, new_commit)
+    return True, message, {"old_commit": old_commit, "new_commit": new_commit}
+
+
+def restart_services() -> Tuple[bool, str]:
+    stop_script = BASE_DIR / "stop_full.sh"
+    start_script = BASE_DIR / "start_full.sh"
+    if not stop_script.exists() or not start_script.exists():
+        return False, "restart scripts missing"
+
+    ok, stop_msg = run_cmd(["sh", str(stop_script)], timeout=20)
+    if not ok:
+        return False, f"stop failed: {stop_msg}"
+
+    ok, start_msg = run_cmd(["sh", str(start_script)], timeout=20)
+    if not ok:
+        return False, f"start failed: {start_msg}"
+
+    update_logger.info("update restart")
+    return True, ""
+
+
 @app.route("/")
 def index():
     return render_template("dashboard.html")
@@ -256,6 +369,58 @@ def api_set_config():
     return json_ok("config updated", {"config": config})
 
 
+@app.route("/api/update/status", methods=["GET"])
+def api_update_status():
+    ok, msg, data = get_update_status(fetch_remote=True)
+    if not ok:
+        update_logger.error("update status error: %s", msg)
+        return json_error(msg, 500)
+    return json_ok("status", data)
+
+
+@app.route("/api/update/check", methods=["POST"])
+def api_update_check():
+    ok, msg, data = get_update_status(fetch_remote=True)
+    if not ok:
+        update_logger.error("update check error: %s", msg)
+        return json_error(msg, 500)
+    return json_ok("status", data)
+
+
+@app.route("/api/update/pull", methods=["POST"])
+def api_update_pull():
+    ok, reason = git_required_state()
+    if not ok:
+        update_logger.error("update pull rejected: %s", reason)
+        return json_error(reason)
+
+    ok, msg, data = do_pull()
+    if not ok:
+        update_logger.error("update pull error: %s", msg)
+        return json_error(msg, 500)
+    return json_ok(msg, data)
+
+
+@app.route("/api/update/pull_restart", methods=["POST"])
+def api_update_pull_restart():
+    ok, reason = git_required_state()
+    if not ok:
+        update_logger.error("update pull_restart rejected: %s", reason)
+        return json_error(reason)
+
+    ok, msg, data = do_pull()
+    if not ok:
+        update_logger.error("update pull_restart pull error: %s", msg)
+        return json_error(msg, 500)
+
+    ok, restart_msg = restart_services()
+    if not ok:
+        update_logger.error("update restart error: %s", restart_msg)
+        return json_error(restart_msg, 500)
+
+    return json_ok("updated and restarted", data)
+
+
 def setup_logging() -> None:
     ensure_layout()
     logging.basicConfig(
@@ -263,6 +428,10 @@ def setup_logging() -> None:
         format="%(asctime)s %(levelname)s %(message)s",
         handlers=[logging.FileHandler(WEB_LOG_PATH, encoding="utf-8"), logging.StreamHandler()],
     )
+    update_logger.setLevel(logging.INFO)
+    update_logger.propagate = False
+    if not update_logger.handlers:
+        update_logger.addHandler(logging.FileHandler(UPDATE_LOG_PATH, encoding="utf-8"))
 
 
 def main() -> None:
