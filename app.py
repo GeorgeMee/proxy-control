@@ -221,6 +221,30 @@ def git_required_state() -> Tuple[bool, str]:
     return True, ""
 
 
+def resolve_remote_ref(branch: str) -> Tuple[bool, str]:
+    candidates: list[str] = []
+    clean_branch = branch.strip()
+    if clean_branch and clean_branch != "HEAD":
+        candidates.append(f"origin/{clean_branch}")
+
+    ok, origin_head = run_cmd(["git", "rev-parse", "--abbrev-ref", "origin/HEAD"])
+    if ok:
+        ref = origin_head.strip()
+        if ref and ref != "origin/HEAD" and ref not in candidates:
+            candidates.append(ref)
+
+    # Backward compatibility for repos that still use master as default branch.
+    if "origin/master" not in candidates:
+        candidates.append("origin/master")
+
+    for ref in candidates:
+        ok, _ = run_cmd(["git", "rev-parse", "--verify", ref])
+        if ok:
+            return True, ref
+
+    return False, "no usable remote branch ref found (tried: " + ", ".join(candidates) + ")"
+
+
 def get_update_status(fetch_remote: bool = True) -> Tuple[bool, str, Dict[str, Any]]:
     repo_url = ""
 
@@ -242,13 +266,18 @@ def get_update_status(fetch_remote: bool = True) -> Tuple[bool, str, Dict[str, A
             return False, f"git fetch failed: {fetch_msg}", {}
         update_logger.info("update check")
 
-    ok, remote_commit = run_cmd(["git", "rev-parse", "--short", "origin/main"])
+    branch_name = branch.strip()
+    ok, remote_ref = resolve_remote_ref(branch_name)
+    if not ok:
+        return False, f"failed to resolve remote ref: {remote_ref}", {}
+
+    ok, remote_commit = run_cmd(["git", "rev-parse", "--short", remote_ref])
     if not ok:
         return False, f"failed to read remote commit: {remote_commit}", {}
 
     data = {
         "repo": repo_url,
-        "branch": branch.strip(),
+        "branch": branch_name,
         "local_commit": local_commit.strip(),
         "remote_commit": remote_commit.strip(),
         "update_available": local_commit.strip() != remote_commit.strip(),
@@ -443,3 +472,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
