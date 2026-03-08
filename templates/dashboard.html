@@ -66,7 +66,7 @@
     }
     button:active { transform: scale(0.99); }
     label { display: block; margin-top: 6px; font-size: 0.85rem; }
-    input {
+    input, textarea {
       width: 100%;
       box-sizing: border-box;
       border: 1px solid var(--line);
@@ -74,6 +74,13 @@
       padding: 7px;
       margin-top: 4px;
       font-size: 0.9rem;
+    }
+    textarea {
+      min-height: 120px;
+      max-height: 300px;
+      resize: none;
+      overflow-y: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
     }
     pre {
       margin: 0;
@@ -154,6 +161,17 @@
           </div>
           <div id="cfg_msg" class="small"></div>
         </form>
+      </div>
+
+
+      <div class="card">
+        <h3 style="margin:0 0 8px 0;">Remote File Upload</h3>
+        <label>File path<input id="upload_path" value="/home/Docs/to-ai.md"></label>
+        <label>Content<textarea id="upload_content" placeholder="text content"></textarea></label>
+        <div class="row">
+          <button type="button" id="btn_upload_send">Send</button>
+        </div>
+        <div id="upload_msg" class="small"></div>
       </div>
 
       <div class="card">

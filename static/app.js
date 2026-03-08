@@ -46,6 +46,36 @@ function getConfigFromForm() {
   return payload;
 }
 
+function autoResizeTextarea(el) {
+  if (!el) return;
+  const maxHeight = 300;
+  el.style.height = "auto";
+  const next = Math.min(el.scrollHeight, maxHeight);
+  el.style.height = `${next}px`;
+}
+
+async function doRemoteUpload() {
+  const pathEl = document.getElementById("upload_path");
+  const contentEl = document.getElementById("upload_content");
+  const msgEl = document.getElementById("upload_msg");
+  const path = (pathEl.value || "").trim();
+  const content = contentEl.value || "";
+  const bytes = new TextEncoder().encode(content).length;
+
+  if (!path) {
+    msgEl.textContent = "path required";
+    return;
+  }
+  if (bytes > 20 * 1024) {
+    msgEl.textContent = "content too large (max 20KB)";
+    return;
+  }
+
+  msgEl.textContent = "sending...";
+  const data = await req("/api/remote/upload", "POST", { path, content });
+  msgEl.textContent = data.message || "done";
+}
+
 function setUpdateState(updateAvailable) {
   const el = document.getElementById("upd_state");
   el.classList.remove("ok", "bad", "warn");
@@ -173,6 +203,20 @@ document.getElementById("btn_update_pull").addEventListener("click", async () =>
 
 document.getElementById("btn_update_pull_restart").addEventListener("click", async () => {
   await doUpdateAction("/api/update/pull_restart");
+});
+
+const uploadContentEl = document.getElementById("upload_content");
+if (uploadContentEl) {
+  uploadContentEl.addEventListener("input", () => autoResizeTextarea(uploadContentEl));
+  autoResizeTextarea(uploadContentEl);
+}
+
+document.getElementById("btn_upload_send").addEventListener("click", async () => {
+  try {
+    await doRemoteUpload();
+  } catch (e) {
+    document.getElementById("upload_msg").textContent = "upload error: " + String(e);
+  }
 });
 
 (async () => {

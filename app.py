@@ -2,12 +2,13 @@
 import json
 import logging
 import os
+import shlex
 import subprocess
 import tempfile
 import time
 import uuid
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Dict, Tuple
 
 from flask import Flask, jsonify, render_template, request
@@ -70,6 +71,8 @@ DEFAULT_STATUS: Dict[str, Any] = {
 
 app = Flask(__name__)
 update_logger = logging.getLogger("update")
+MAX_UPLOAD_CONTENT_BYTES = 20 * 1024
+SSH_UPLOAD_TIMEOUT_SECONDS = 10
 
 
 def ensure_layout() -> None:
@@ -396,6 +399,78 @@ def api_set_config():
         command_id = send_control_command("apply_config")
         return json_ok("config updated and apply requested", {"config": config, "command_id": command_id})
     return json_ok("config updated", {"config": config})
+
+
+@app.route("/api/remote/upload", methods=["POST"])
+def api_remote_upload():
+    payload = request.get_json(silent=True) or {}
+    remote_path = str(payload.get("path", "")).strip()
+    content = payload.get("content", "")
+
+    if not remote_path:
+        return json_error("path required")
+    if not isinstance(content, str):
+        return json_error("content must be string")
+
+    content_bytes = content.encode("utf-8")
+    if len(content_bytes) > MAX_UPLOAD_CONTENT_BYTES:
+        return json_error("content too large (max 20KB)")
+
+    path_obj = PurePosixPath(remote_path)
+    directory = path_obj.parent.as_posix()
+    filename = path_obj.name
+    if not filename:
+        return json_error("invalid path")
+
+    config = load_config()
+    remote_host = str(config.get("remote_host", "")).strip()
+    remote_user = str(config.get("remote_user", "")).strip()
+    if not remote_host or not remote_user:
+        return json_error("remote_host/remote_user missing in config")
+
+    remote_target = f"{remote_user}@{remote_host}"
+    remote_dir_cmd = f"test -d {shlex.quote(directory)}"
+    ok, _ = run_cmd(
+        [
+            "ssh",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            f"ConnectTimeout={SSH_UPLOAD_TIMEOUT_SECONDS}",
+            remote_target,
+            remote_dir_cmd,
+        ],
+        timeout=SSH_UPLOAD_TIMEOUT_SECONDS,
+    )
+    if not ok:
+        return json_error("directory not found")
+
+    temp_path = ""
+    try:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False) as tf:
+            tf.write(content)
+            temp_path = tf.name
+
+        ok, scp_msg = run_cmd(
+            [
+                "scp",
+                "-o",
+                f"ConnectTimeout={SSH_UPLOAD_TIMEOUT_SECONDS}",
+                temp_path,
+                f"{remote_target}:{remote_path}",
+            ],
+            timeout=SSH_UPLOAD_TIMEOUT_SECONDS,
+        )
+        if not ok:
+            return json_error(f"upload failed: {scp_msg}", 500)
+    finally:
+        if temp_path:
+            try:
+                os.unlink(temp_path)
+            except Exception:
+                app.logger.exception("Failed deleting temp upload file: %s", temp_path)
+
+    return json_ok("uploaded")
 
 
 @app.route("/api/update/status", methods=["GET"])

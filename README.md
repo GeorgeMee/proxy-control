@@ -65,3 +65,11 @@ tail -f logs/supervisor.log
 - `autossh` not running: confirm local proxy port is listening first
 - remote port not open: run `sh scripts/test_remote.sh`
 - no status update: confirm supervisor pid is alive and writable `runtime/status.json`
+## Remote File Upload
+- Upload text content to a remote file from the dashboard.
+- The remote directory must already exist.
+- The target file is overwritten if it exists, and created if it does not exist.
+- Content size limit: 20KB.
+
+Example target path:
+- `/home/Docs/to-ai.md`
