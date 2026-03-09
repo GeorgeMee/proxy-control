@@ -332,6 +332,40 @@ def index():
     return render_template("dashboard.html")
 
 
+@app.route("/api/games", methods=["GET"])
+def api_games():
+    games_path = BASE_DIR / "static" / "games.json"
+    try:
+        with games_path.open("r", encoding="utf-8") as f:
+            games = json.load(f)
+        return json_ok("games list", {"games": games})
+    except Exception as e:
+        app.logger.exception("Failed to load games.json")
+        return json_error(f"Failed to load games: {e}", 500)
+
+
+@app.route("/games/<game_id>")
+def game_page(game_id):
+    games_path = BASE_DIR / "static" / "games.json"
+    try:
+        with games_path.open("r", encoding="utf-8") as f:
+            games = json.load(f)
+        
+        game_info = None
+        for game in games:
+            if game.get("id") == game_id:
+                game_info = game
+                break
+        
+        if not game_info:
+            return render_template("game.html", game=None, error="Game not found")
+        
+        return render_template("game.html", game=game_info, error=None)
+    except Exception as e:
+        app.logger.exception("Failed to load game page")
+        return render_template("game.html", game=None, error=f"Failed to load game: {e}")
+
+
 @app.route("/api/status", methods=["GET"])
 def api_status():
     config = load_config()

@@ -219,10 +219,39 @@ document.getElementById("btn_upload_send").addEventListener("click", async () =>
   }
 });
 
+async function loadGames() {
+  try {
+    const data = await req("/api/games");
+    if (!data.ok) {
+      document.getElementById("games_list").innerHTML = `<div class="small">Failed to load games: ${data.message}</div>`;
+      return;
+    }
+    
+    const games = data.data.games || [];
+    const gamesListEl = document.getElementById("games_list");
+    
+    if (games.length === 0) {
+      gamesListEl.innerHTML = `<div class="small">No games available</div>`;
+      return;
+    }
+    
+    gamesListEl.innerHTML = games.map(game => `
+      <div style="background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-width: 200px;">
+        <div style="font-weight: 600; margin-bottom: 5px;">${game.name}</div>
+        <div class="small" style="margin-bottom: 8px;">${game.description}</div>
+        <button onclick="window.location.href='/games/${game.id}'" style="width: 100%;">Start Game</button>
+      </div>
+    `).join('');
+  } catch (e) {
+    document.getElementById("games_list").innerHTML = `<div class="small">Error loading games: ${String(e)}</div>`;
+  }
+}
+
 (async () => {
   await loadConfig();
   await pollStatus();
   await pollUpdateStatus();
+  await loadGames();
   setInterval(pollStatus, 4000);
   setInterval(pollUpdateStatus, 30000);
 })();

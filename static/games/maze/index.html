@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maze Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: #1a1a1a;
+            font-family: Arial, sans-serif;
+        }
+        .game-container {
+            text-align: center;
+        }
+        canvas {
+            border: 2px solid #fff;
+            background: #000;
+        }
+        .controls {
+            margin-top: 20px;
+            color: #fff;
+        }
+        .instructions {
+            color: #aaa;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        <div class="controls">
+            <div>Use Arrow Keys or WASD to move</div>
+            <div class="instructions">Find the exit (green square) to win!</div>
+            <div id="status">Move to start!</div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const statusEl = document.getElementById('status');
+
+        // Maze layout (0 = wall, 1 = path, 2 = start, 3 = exit)
+        const maze = [
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 2, 1, 1, 0, 1, 1, 1, 1, 0],
+            [0, 0, 0, 1, 0, 1, 0, 0, 1, 0],
+            [0, 1, 1, 1, 1, 1, 0, 1, 1, 0],
+            [0, 1, 0, 0, 0, 0, 0, 1, 0, 0],
+            [0, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+            [0, 0, 0, 1, 0, 0, 0, 0, 1, 0],
+            [0, 1, 1, 1, 0, 1, 1, 1, 1, 0],
+            [0, 1, 0, 1, 1, 1, 0, 0, 3, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        ];
+
+        const cellSize = 40;
+        let player = {x: 1, y: 1}; // Start position
+        let gameWon = false;
+
+        function drawMaze() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            for (let y = 0; y < maze.length; y++) {
+                for (let x = 0; x < maze[y].length; x++) {
+                    const cell = maze[y][x];
+                    
+                    // Draw walls
+                    if (cell === 0) {
+                        ctx.fillStyle = '#333';
+                        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                        ctx.strokeStyle = '#555';
+                        ctx.strokeRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                    }
+                    // Draw exit
+                    else if (cell === 3) {
+                        ctx.fillStyle = '#2ecc71';
+                        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                        ctx.strokeStyle = '#27ae60';
+                        ctx.strokeRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                    }
+                    // Draw path
+                    else {
+                        ctx.fillStyle = '#1a1a1a';
+                        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                        ctx.strokeStyle = '#2a2a2a';
+                        ctx.strokeRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                    }
+                }
+            }
+            
+            // Draw player
+            ctx.fillStyle = '#3498db';
+            ctx.beginPath();
+            ctx.arc(
+                player.x * cellSize + cellSize / 2,
+                player.y * cellSize + cellSize / 2,
+                cellSize / 3,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+            
+            // Draw player outline
+            ctx.strokeStyle = '#2980b9';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(
+                player.x * cellSize + cellSize / 2,
+                player.y * cellSize + cellSize / 2,
+                cellSize / 3,
+                0,
+                Math.PI * 2
+            );
+            ctx.stroke();
+        }
+
+        function movePlayer(dx, dy) {
+            if (gameWon) return;
+            
+            const newX = player.x + dx;
+            const newY = player.y + dy;
+            
+            // Check bounds
+            if (newX < 0 || newX >= maze[0].length || newY < 0 || newY >= maze.length) {
+                return;
+            }
+            
+            // Check if cell is walkable (not a wall)
+            if (maze[newY][newX] !== 0) {
+                player.x = newX;
+                player.y = newY;
+                
+                // Check if reached exit
+                if (maze[newY][newX] === 3) {
+                    gameWon = true;
+                    statusEl.textContent = 'Congratulations! You found the exit!';
+                    statusEl.style.color = '#2ecc71';
+                }
+                
+                drawMaze();
+            }
+        }
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case 'ArrowUp':
+                case 'w':
+                case 'W':
+                    movePlayer(0, -1);
+                    break;
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    movePlayer(0, 1);
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    movePlayer(-1, 0);
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    movePlayer(1, 0);
+                    break;
+            }
+        });
+
+        // Initial draw
+        drawMaze();
+    </script>
+</body>
+</html>
