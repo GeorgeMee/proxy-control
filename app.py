@@ -344,12 +344,6 @@ def api_games():
         return json_error(f"Failed to load games: {e}", 500)
 
 
-@app.route("/games/<path:filename>")
-def serve_game_files(filename):
-    games_dir = BASE_DIR / "games"
-    return send_from_directory(games_dir, filename)
-
-
 @app.route("/games/<game_id>")
 def game_page(game_id):
     games_path = BASE_DIR / "static" / "games.json"
@@ -370,6 +364,12 @@ def game_page(game_id):
     except Exception as e:
         app.logger.exception("Failed to load game page")
         return render_template("game.html", game=None, error=f"Failed to load game: {e}")
+
+
+@app.route("/game-assets/<path:filename>")
+def serve_game_files(filename):
+    games_dir = BASE_DIR / "games"
+    return send_from_directory(games_dir, filename)
 
 
 @app.route("/api/status", methods=["GET"])
