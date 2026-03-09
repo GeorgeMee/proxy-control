@@ -3,5 +3,10 @@
     "id": "maze_game",
     "name": "迷宫游戏",
     "description": "一个简单的迷宫游戏，使用方向键或WASD控制角色走出迷宫"
+  },
+  {
+    "id": "number_duel",
+    "name": "数字对决",
+    "description": "一个数字对战游戏"
   }
 ]
