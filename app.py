@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Any, Dict, Tuple
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, send_from_directory
 
 BASE_DIR = Path(__file__).resolve().parent
 RUNTIME_DIR = BASE_DIR / "runtime"
@@ -342,6 +342,12 @@ def api_games():
     except Exception as e:
         app.logger.exception("Failed to load games.json")
         return json_error(f"Failed to load games: {e}", 500)
+
+
+@app.route("/games/<path:filename>")
+def serve_game_files(filename):
+    games_dir = BASE_DIR / "games"
+    return send_from_directory(games_dir, filename)
 
 
 @app.route("/games/<game_id>")
